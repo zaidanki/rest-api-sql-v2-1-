@@ -126,16 +126,16 @@ router.get('/courses/:id', (req, res) => {
 // Post a new Course
 router.post('/courses', authenticateUser , (req, res) => {
     // checking if ID exists and if userID exists and then validating
-
+    console.log(req.body)
     Course.findByPk(req.body.id).then((course) => {
+
         User.findByPk(req.body.userId).then( userId => {
             if(course){
                 res.status(403).json({ message: 'This ID already exists'})
-            } else if(!userId) {
-                res.status(400).json({message: 'User Not Found'})
-            }else if(req.body){
+            }
+           else if(req.body){
                 Course.create(req.body).then(() => {
-                    res.location(`/courses/${req.body.id}`).status(201).end()
+                    res.location('/courses/' + req.body.id).status(201).end()
                 } ).catch(e => {
                     // a couple of Validators
                     if(e.name === "SequelizeValidationError" || "SequelizeUniqueConstraintError" ){
@@ -143,6 +143,8 @@ router.post('/courses', authenticateUser , (req, res) => {
                     }else {
                     res.status(500).json({Error: e})
                 }})
+            } else if(!userId) {
+                res.status(400).json({message: 'User Not Found'})
             }
         })
             .catch(e => {
@@ -180,14 +182,22 @@ router.put('/courses/:id', authenticateUser , (req, res) => {
 
 // Delete a course
 router.delete('/courses/:id', authenticateUser , (req, res) => {
+    const credentials = auth(req);
+
     Course.findByPk(req.params.id).then( course => {
         if(course){
-            course.destroy().then(res.status(204).end())
-                .catch(e => {
-                    res.status(500).json({Error: e})
-                })
+            User.findByPk(course.userId).then( data => {
+                console.log(data.emailAddress);
+                if(data.emailAddress === credentials.name){
+                    course.destroy().then(res.status(204).end())
+                } else {
+                    res.status(401).json({Error: 'User is not the one who posted, so you cant Delete'})
+                }}).catch(e => {
+                res.status(500).json({Error : e})
+            })
+
         } else {
-            res.status(403).json({ message: 'Cant Delete a course that does not exist'})
+            res.status(403).json({ message: 'Cant delete a course that does not exist'})
         }
     }).catch(e => {
         res.status(500).json({Error: e})
